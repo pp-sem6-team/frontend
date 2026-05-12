@@ -22,7 +22,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    "ignoreDeprecations": "6.0",
+    // Keep config compatible with the current TypeScript version.
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
