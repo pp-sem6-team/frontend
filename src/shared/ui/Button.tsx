@@ -1,4 +1,4 @@
-import { type ReactNode, type ButtonHTMLAttributes } from 'react'
+import { type ButtonHTMLAttributes, type ReactNode } from 'react'
 import Spinner from './Spinner'
 import { cn } from '../lib/cn'
 
@@ -39,7 +39,7 @@ export default function Button({
     variant === 'primary'
       ? 'bg-primary hover:bg-primary-hover text-text-main border border-primary'
       : variant === 'secondary'
-        ? 'bg-[#C2D3AF] border border-border text-text-main hover:bg-card-soft'
+        ? 'bg-card border border-border text-text-main hover:bg-card-soft'
         : variant === 'danger'
           ? 'bg-error hover:bg-error/90 text-card border border-error'
           : 'bg-transparent border border-transparent text-text-main hover:bg-card-soft'
@@ -49,7 +49,7 @@ export default function Button({
       type={type}
       disabled={isDisabled}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors',
+        'inline-flex items-center justify-center gap-2 rounded-md font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors',
         sizeClasses,
         variantClasses,
         'disabled:cursor-not-allowed disabled:opacity-60',
@@ -63,4 +63,3 @@ export default function Button({
     </button>
   )
 }
-

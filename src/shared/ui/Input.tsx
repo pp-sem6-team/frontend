@@ -6,6 +6,8 @@ export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
   hint?: string
   error?: boolean
   errorMessage?: string
+  /** Classes for the native input element (e.g. rounded-full) */
+  inputClassName?: string
 }
 
 export default function Input({
@@ -16,11 +18,11 @@ export default function Input({
   id,
   disabled,
   className,
+  inputClassName,
   ...props
 }: InputProps) {
   const generatedId = useId()
   const inputId = id ?? generatedId
-
   const showError = Boolean(error || errorMessage)
 
   return (
@@ -28,7 +30,7 @@ export default function Input({
       {label ? (
         <label
           htmlFor={inputId}
-          className="mb-1 block text-sm font-medium text-text-secondary"
+          className="mb-1.5 block text-sm font-medium text-text-secondary"
         >
           {label}
         </label>
@@ -38,23 +40,23 @@ export default function Input({
         id={inputId}
         disabled={disabled}
         className={cn(
-          'block w-full rounded-md border px-3 py-2 text-sm bg-input-bg text-text-main placeholder:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+          'block w-full rounded-md border px-4 py-3 text-sm bg-input-bg text-text-main placeholder:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-green/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           showError
             ? 'border-error focus-visible:ring-error/30'
             : 'border-border',
           disabled
-            ? 'bg-card-soft text-text-secondary cursor-not-allowed'
+            ? 'cursor-not-allowed bg-card-soft text-text-secondary'
             : null,
+          inputClassName,
         )}
         {...props}
       />
 
       {showError && errorMessage ? (
-        <div className="mt-1 text-sm text-error">{errorMessage}</div>
+        <div className="mt-1.5 text-sm text-error">{errorMessage}</div>
       ) : hint ? (
-        <div className="mt-1 text-sm text-text-secondary">{hint}</div>
+        <div className="mt-1.5 text-sm text-text-secondary">{hint}</div>
       ) : null}
     </div>
   )
 }
-

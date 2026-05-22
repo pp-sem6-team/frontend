@@ -18,18 +18,16 @@ export default function Badge({
   children,
 }: BadgeProps) {
   const sizeClasses =
-    size === 'md'
-      ? 'px-2.5 py-1 text-sm'
-      : 'px-2 py-0.5 text-xs'
+    size === 'md' ? 'px-2.5 py-1 text-sm' : 'px-2 py-0.5 text-xs'
 
   const variantClasses =
     variant === 'success'
-      ? 'bg-accent-green/30 border-accent-green/60 text-text-main'
+      ? 'border-accent-green/60 bg-accent-green/30 text-text-main'
       : variant === 'error'
-        ? 'bg-error/15 border-error/40 text-error'
+        ? 'border-error/40 bg-error/15 text-error'
         : variant === 'processing'
-          ? 'bg-primary/25 border-primary/50 text-text-secondary'
-          : 'bg-card-soft border-border text-text-secondary'
+          ? 'border-primary/50 bg-primary/25 text-text-secondary'
+          : 'border-border bg-card-soft text-text-secondary'
 
   return (
     <span
@@ -44,4 +42,3 @@ export default function Badge({
     </span>
   )
 }
-

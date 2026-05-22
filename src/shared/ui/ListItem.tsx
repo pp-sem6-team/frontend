@@ -23,11 +23,11 @@ export default function ListItem({
 }: ListItemProps) {
   const statusBadge =
     status === 'processing' ? (
-      <Badge variant="processing">Processing</Badge>
+      <Badge variant="processing">В обработке</Badge>
     ) : status === 'completed' ? (
-      <Badge variant="success">Completed</Badge>
+      <Badge variant="success">Готово</Badge>
     ) : status === 'failed' ? (
-      <Badge variant="error">Failed</Badge>
+      <Badge variant="error">Ошибка</Badge>
     ) : null
 
   return (
@@ -37,7 +37,7 @@ export default function ListItem({
         className,
       )}
     >
-      {leading ? <div className="mt-0.5 flex-shrink-0">{leading}</div> : null}
+      {leading ? <div className="mt-0.5 shrink-0">{leading}</div> : null}
 
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-text-main">{title}</div>
@@ -46,10 +46,9 @@ export default function ListItem({
         ) : null}
       </div>
 
-      <div className="flex flex-shrink-0 items-start gap-2">
-        {trailing ? trailing : statusBadge}
+      <div className="flex shrink-0 items-start gap-2">
+        {trailing ?? statusBadge}
       </div>
     </div>
   )
 }
-

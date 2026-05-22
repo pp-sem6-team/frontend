@@ -16,8 +16,9 @@ export default function Spinner({ size = 'md', className }: SpinnerProps) {
         'inline-block animate-spin rounded-full border-2 border-text-main/20 border-t-text-main',
         dim,
         className,
-      ].filter(Boolean).join(' ')}
+      ]
+        .filter(Boolean)
+        .join(' ')}
     />
   )
 }
-

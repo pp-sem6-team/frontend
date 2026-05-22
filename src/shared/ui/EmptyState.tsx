@@ -34,7 +34,7 @@ export default function EmptyState({
 
       {actionLabel && onAction ? (
         <div className="mt-5">
-          <Button variant="secondary" onClick={onAction}>
+          <Button variant="secondary" type="button" onClick={onAction}>
             {actionLabel}
           </Button>
         </div>
@@ -42,4 +42,3 @@ export default function EmptyState({
     </div>
   )
 }
-

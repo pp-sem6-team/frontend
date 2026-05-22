@@ -22,7 +22,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    // Keep config compatible with the current TypeScript version.
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react'
 import { cn } from '../lib/cn'
 
-export type CardVariant = 'default' | 'soft' | 'outline'
+export type CardVariant = 'default' | 'soft' | 'outline' | 'primary'
 
 export type CardProps = {
   variant?: CardVariant
@@ -16,15 +16,16 @@ export default function Card({
 }: CardProps) {
   const variantClasses =
     variant === 'soft'
-      ? 'bg-card-soft border border-border'
+      ? 'border border-border bg-card-soft'
       : variant === 'outline'
-        ? 'bg-transparent border border-border'
-        : 'bg-card border border-border'
+        ? 'border border-border bg-transparent'
+        : variant === 'primary'
+          ? 'border border-primary bg-primary'
+          : 'border border-border bg-card'
 
   return (
-    <div className={cn('rounded-md p-6', variantClasses, className)}>
+    <div className={cn('rounded-xl p-8', variantClasses, className)}>
       {children}
     </div>
   )
 }
-
