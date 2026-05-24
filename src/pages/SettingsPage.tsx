@@ -1,4 +1,13 @@
 import { AppPageShell } from '@/shared/layout/AppPageShell'
+import {
+  authApi,
+  formToUpdateUserRequest,
+  getApiError,
+  isAuthenticated,
+  isUnauthorized,
+  userApi,
+  userToForm,
+} from '@/shared/api'
 import Button from '@/shared/ui/Button'
 import Card from '@/shared/ui/Card'
 import Input from '@/shared/ui/Input'
@@ -16,13 +25,6 @@ const genderOptions = [
 ]
 
 const fieldRounding = 'rounded-full py-3.5'
-
-type UserData = {
-  email: string
-  fullName: string
-  birthDate: string
-  gender: string
-}
 
 type FormErrors = {
   email?: string
@@ -50,38 +52,24 @@ export default function SettingsPage() {
   // Загрузка текущих данных пользователя
   useEffect(() => {
     const loadUserData = async () => {
-      const token = localStorage.getItem('token')
-      if (!token) {
+      if (!isAuthenticated()) {
         navigate('/login')
         return
       }
 
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-        const response = await fetch(`${apiUrl}/api/user/profile`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            localStorage.removeItem('token')
-            localStorage.removeItem('user')
-            navigate('/login')
-          }
-          throw new Error('Не удалось загрузить профиль')
-        }
-
-        const data = await response.json()
-        // Заполняем форму
-        setEmail(data.email || '')
-        setFullName(data.fullName || '')
-        setBirthDate(data.birthDate?.split('T')[0] || '')
-        setGender(data.gender || '')
+        const user = await userApi.getMe()
+        const form = userToForm(user)
+        setEmail(form.email)
+        setFullName(form.fullName)
+        setBirthDate(form.birthDate)
+        setGender(form.gender)
       } catch (err) {
-        console.error(err)
-        setErrors({ server: 'Ошибка загрузки профиля' })
+        if (isUnauthorized(err)) {
+          navigate('/login')
+          return
+        }
+        setErrors({ server: getApiError(err).message || 'Ошибка загрузки профиля' })
       } finally {
         setIsFetching(false)
       }
@@ -111,71 +99,43 @@ export default function SettingsPage() {
     setErrors({})
 
     try {
-      const token = localStorage.getItem('token')
-      if (!token) throw new Error('Нет авторизации')
-
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-      const payload: any = {
-        email: email.trim(),
-        fullName: fullName.trim(),
-        birthDate: birthDate || null,
-        gender: gender || null,
-      }
-      if (password) {
-        payload.password = password
-      }
-
-      const response = await fetch(`${apiUrl}/api/user/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        if (data.errors) {
-          const fieldErrors: FormErrors = {}
-          if (data.errors.email) fieldErrors.email = data.errors.email
-          if (data.errors.fullName) fieldErrors.fullName = data.errors.fullName
-          if (data.errors.password) fieldErrors.password = data.errors.password
-          setErrors(fieldErrors)
-        } else {
-          setErrors({ server: data.message || 'Ошибка сохранения' })
-        }
+      if (!isAuthenticated()) {
+        navigate('/login')
         return
       }
 
-      // Обновляем сохранённого пользователя в localStorage
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user))
-      } else {
-        // Если бэкенд не вернул user, обновляем хотя бы email и имя
-        const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
-        const updatedUser = { ...currentUser, email: email.trim(), fullName: fullName.trim() }
-        localStorage.setItem('user', JSON.stringify(updatedUser))
-      }
+      await userApi.updateMe(
+        formToUpdateUserRequest({
+          email,
+          fullName,
+          birthDate,
+          gender,
+        }),
+      )
+
+      // TODO: PATCH /users/me/password — нужно поле current_password в UI
 
       setSuccessMessage('Данные успешно обновлены')
       setTimeout(() => setSuccessMessage(''), 3000)
-
-      // Очищаем поля пароля
       setPassword('')
       setPasswordRepeat('')
     } catch (err) {
-      console.error(err)
-      setErrors({ server: 'Ошибка соединения с сервером' })
+      if (isUnauthorized(err)) {
+        navigate('/login')
+        return
+      }
+      setErrors({ server: getApiError(err).message || 'Ошибка сохранения' })
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+  const handleLogout = async () => {
+    try {
+      await authApi.logout()
+    } catch {
+      // logout локально даже при ошибке API
+    }
     navigate('/login')
   }
 

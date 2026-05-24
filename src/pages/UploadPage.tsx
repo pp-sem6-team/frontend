@@ -1,6 +1,7 @@
 import { PaperclipIcon } from '@/shared/icons/PaperclipIcon'
 import { AppPageShell } from '@/shared/layout/AppPageShell'
 import { PageCenter, PageSection } from '@/shared/layout/PageContent'
+import { analysisApi, getApiError, isAuthenticated, isUnauthorized } from '@/shared/api'
 import { Loader2, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -44,43 +45,22 @@ export default function UploadPage() {
     setIsLoading(true)
     setError(null)
 
-    const token = localStorage.getItem('token')
-    if (!token) {
+    if (!isAuthenticated()) {
+      setIsLoading(false)
       navigate('/login')
       return
     }
 
-    const formData = new FormData()
-    formData.append('photo', file)
-
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-      const response = await fetch(`${apiUrl}/api/analyze`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem('token')
-          navigate('/login')
-          return
-        }
-        const data = await response.json()
-        throw new Error(data.message || 'Ошибка анализа')
-      }
-
-      const result = await response.json()
-      // Сохраняем результат анализа (например, в localStorage или контекст)
-      localStorage.setItem('lastAnalysis', JSON.stringify(result))
-      // Переход на страницу с результатом
-      navigate('/result')
+      const created = await analysisApi.uploadPhoto(file)
+      navigate(`/result/${created.id}`)
     } catch (err) {
-      console.error(err)
-      setError(err instanceof Error ? err.message : 'Ошибка соединения с сервером')
+      if (isUnauthorized(err)) {
+        navigate('/login')
+        return
+      }
+      const apiError = getApiError(err)
+      setError(apiError.message)
       setPreview(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
     } finally {

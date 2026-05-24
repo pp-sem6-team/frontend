@@ -1,5 +1,11 @@
 import { AppPageShell } from '@/shared/layout/AppPageShell'
 import { PageCenter } from '@/shared/layout/PageContent'
+import {
+  authApi,
+  birthDateToApi,
+  genderToApi,
+  getApiError,
+} from '@/shared/api'
 import Button from '@/shared/ui/Button'
 import Card from '@/shared/ui/Card'
 import Input from '@/shared/ui/Input'
@@ -55,49 +61,21 @@ export default function RegisterPage() {
     setErrors({}) // очищаем предыдущие ошибки
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-      const response = await fetch(`${apiUrl}/api/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          fullName: name.trim(),
-          birthDate,
-          gender: gender || null,
-        }),
+      await authApi.register({
+        email: email.trim(),
+        password,
+        name: name.trim(),
+        birth_date: birthDateToApi(birthDate),
+        gender: genderToApi(gender),
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        // Обработка ошибок от бэкенда
-        if (data.message?.includes('email')) {
-          setErrors({ email: 'Пользователь с такой почтой уже существует' })
-        } else if (data.errors) {
-          // Если бэкенд возвращает поля с ошибками
-          const fieldErrors: RegisterErrors = {}
-          if (data.errors.email) fieldErrors.email = data.errors.email
-          if (data.errors.password) fieldErrors.password = data.errors.password
-          if (data.errors.fullName) fieldErrors.name = data.errors.fullName
-          if (Object.keys(fieldErrors).length) setErrors(fieldErrors)
-          else setErrors({ server: data.message || 'Ошибка регистрации' })
-        } else {
-          setErrors({ server: data.message || 'Не удалось зарегистрироваться' })
-        }
-        return
-      }
-
-      // Успешная регистрация
-      // Можно сохранить токен, если он возвращается
-      if (data.token) {
-        localStorage.setItem('token', data.token)
-      }
-      // Перенаправление на загрузку фото или дашборд
       navigate('/upload')
     } catch (err) {
-      console.error('Register error:', err)
-      setErrors({ server: 'Ошибка соединения с сервером' })
+      const apiError = getApiError(err)
+      if (apiError.status === 409 || apiError.code === 'ALREADY_EXISTS') {
+        setErrors({ email: 'Пользователь с такой почтой уже существует' })
+      } else {
+        setErrors({ server: apiError.message || 'Не удалось зарегистрироваться' })
+      }
     } finally {
       setIsLoading(false)
     }

@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from '@/App'
 import { Providers } from '@/app/providers'
+import { syncApiModeSession } from '@/shared/api'
+
+syncApiModeSession()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,6 +1,7 @@
 import { PaperclipIcon } from '@/shared/icons/PaperclipIcon'
 import { AppPageShell } from '@/shared/layout/AppPageShell'
 import { PageCenter, PageSection } from '@/shared/layout/PageContent'
+import { authApi, getAccessToken, getApiError, IS_LIVE_MODE, isMockAccessToken } from '@/shared/api'
 import Button from '@/shared/ui/Button'
 import Card from '@/shared/ui/Card'
 import Input from '@/shared/ui/Input'
@@ -53,43 +54,25 @@ export default function LoginPage() {
     setErrors({})
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-      const response = await fetch(`${apiUrl}/api/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
+      await authApi.login({
+        email: email.trim(),
+        password,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        if (data.message?.toLowerCase().includes('email') || data.message?.toLowerCase().includes('not found')) {
-          setErrors({ email: 'Неверная почта или пароль' })
-        } else if (data.errors?.email) {
-          setErrors({ email: data.errors.email })
-        } else if (data.errors?.password) {
-          setErrors({ password: data.errors.password })
-        } else {
-          setErrors({ server: data.message || 'Ошибка входа' })
-        }
+      const token = getAccessToken()
+      if (IS_LIVE_MODE && (!token || isMockAccessToken(token))) {
+        setErrors({ server: 'Не удалось выполнить вход через backend' })
         return
       }
 
-      // Успешный вход – сохраняем токен и данные пользователя
-      if (data.token) {
-        localStorage.setItem('token', data.token)
-      }
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user))
-      }
-      // Перенаправление на главную (загрузка фото)
       navigate('/upload')
     } catch (err) {
-      console.error('Login error:', err)
-      setErrors({ server: 'Ошибка соединения с сервером' })
+      const apiError = getApiError(err)
+      if (apiError.status === 401 || apiError.code === 'INVALID_CREDENTIALS') {
+        setErrors({ email: 'Неверная почта или пароль' })
+      } else {
+        setErrors({ server: apiError.message || 'Ошибка входа' })
+      }
     } finally {
       setIsLoading(false)
     }
