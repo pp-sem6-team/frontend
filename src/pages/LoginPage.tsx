@@ -1,15 +1,16 @@
-import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { PaperclipIcon } from '@/shared/icons/PaperclipIcon'
+import { AppPageShell } from '@/shared/layout/AppPageShell'
+import { PageCenter, PageSection } from '@/shared/layout/PageContent'
 import Button from '@/shared/ui/Button'
 import Card from '@/shared/ui/Card'
 import Input from '@/shared/ui/Input'
-import { AppPageShell } from '@/shared/layout/AppPageShell'
-import { PageCenter, PageSection } from '@/shared/layout/PageContent'
-import { PaperclipIcon } from '@/shared/icons/PaperclipIcon'
+import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 type LoginErrors = {
   email?: string
   password?: string
+  server?: string
 }
 
 function validateLogin(email: string, password: string): LoginErrors {
@@ -36,21 +37,67 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<LoginErrors>({})
+  const [isLoading, setIsLoading] = useState(false)
 
   const scrollToLogin = () => {
     loginAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const handleLogin = () => {
-    const next = validateLogin(email, password)
-    setErrors(next)
-    if (Object.keys(next).length > 0) return
-    navigate('/upload')
+  const handleLogin = async () => {
+    // Клиентская валидация
+    const clientErrors = validateLogin(email, password)
+    setErrors(clientErrors)
+    if (Object.keys(clientErrors).length > 0) return
+
+    setIsLoading(true)
+    setErrors({})
+
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+      const response = await fetch(`${apiUrl}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (data.message?.toLowerCase().includes('email') || data.message?.toLowerCase().includes('not found')) {
+          setErrors({ email: 'Неверная почта или пароль' })
+        } else if (data.errors?.email) {
+          setErrors({ email: data.errors.email })
+        } else if (data.errors?.password) {
+          setErrors({ password: data.errors.password })
+        } else {
+          setErrors({ server: data.message || 'Ошибка входа' })
+        }
+        return
+      }
+
+      // Успешный вход – сохраняем токен и данные пользователя
+      if (data.token) {
+        localStorage.setItem('token', data.token)
+      }
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user))
+      }
+      // Перенаправление на главную (загрузка фото)
+      navigate('/upload')
+    } catch (err) {
+      console.error('Login error:', err)
+      setErrors({ server: 'Ошибка соединения с сервером' })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <AppPageShell>
-      <PageCenter className="max-w-[720px] gap-10 pt-6 pb-16 md:gap-12 md:pt-8 md:pb-20">
+      <PageCenter className="max-w-[720px] gap-6 sm:gap-10 md:gap-12 pt-6 pb-12 sm:pb-16 md:pt-8 md:pb-20">
         <div
           ref={loginAnchorRef}
           id="login-card-anchor"
@@ -58,12 +105,12 @@ export default function LoginPage() {
         >
           <Card
             variant="primary"
-            className="mx-auto w-full max-w-[480px] !rounded-[36px] !p-10 shadow-none md:!px-12 md:!py-12"
+            className="mx-auto w-full max-w-[480px] rounded-[28px] sm:!rounded-[36px] !p-6 sm:!p-10 md:!px-12 md:!py-12 shadow-none"
           >
-            <h1 className="text-center text-[2.625rem] font-black leading-tight text-text-main md:text-[3rem] md:leading-none">
+            <h1 className="text-center text-[2rem] sm:text-[2.625rem] md:text-[3rem] font-black leading-tight text-text-main md:leading-none">
               Вход
             </h1>
-            <div className="mt-10 space-y-5">
+            <div className="mt-6 sm:mt-10 space-y-4 sm:space-y-5">
               <Input
                 type="email"
                 name="email"
@@ -72,7 +119,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(ev) => {
                   setEmail(ev.target.value)
-                  setErrors((prev) => ({ ...prev, email: undefined }))
+                  setErrors((prev) => ({ ...prev, email: undefined, server: undefined }))
                 }}
                 error={Boolean(errors.email)}
                 errorMessage={errors.email}
@@ -86,21 +133,27 @@ export default function LoginPage() {
                 value={password}
                 onChange={(ev) => {
                   setPassword(ev.target.value)
-                  setErrors((prev) => ({ ...prev, password: undefined }))
+                  setErrors((prev) => ({ ...prev, password: undefined, server: undefined }))
                 }}
                 error={Boolean(errors.password)}
                 errorMessage={errors.password}
                 inputClassName="rounded-full py-4 text-base md:py-[1.125rem]"
               />
+              {errors.server && (
+                <div className="text-center text-sm text-error bg-error/10 p-2 rounded-full">
+                  {errors.server}
+                </div>
+              )}
             </div>
-            <div className="mt-10 flex flex-col items-stretch gap-4">
+            <div className="mt-8 sm:mt-10 flex flex-col items-stretch gap-4">
               <Button
                 type="button"
                 variant="primary"
-                className="w-full justify-center rounded-full py-4 text-base font-semibold shadow-none"
+                className="w-full justify-center rounded-full py-4 text-base font-semibold shadow-none disabled:opacity-70"
                 onClick={handleLogin}
+                disabled={isLoading}
               >
-                Войти
+                {isLoading ? 'Вход...' : 'Войти'}
               </Button>
               <div className="flex justify-center">
                 <Button
@@ -120,11 +173,11 @@ export default function LoginPage() {
           <h2 className="text-[1.75rem] font-extrabold leading-tight text-text-main md:text-[2rem]">
             AI-диагностика кожи
           </h2>
-          <p className="mt-4 text-lg leading-[1.65] text-text-secondary md:text-xl md:leading-[1.7]">
+          <p className="mt-4 text-base sm:text-lg leading-[1.65] text-text-secondary md:text-xl md:leading-[1.7]">
             Точные рекомендации на основе анализа изображения и дерматологических подходов
           </p>
-          <p className="mt-8 text-lg font-semibold text-text-main">Загрузите фото, чтобы:</p>
-          <ul className="mt-4 list-disc space-y-3 pl-6 text-lg leading-[1.65] text-text-secondary md:text-xl md:leading-[1.7]">
+          <p className="mt-6 sm:mt-8 text-base sm:text-lg font-semibold text-text-main">Загрузите фото, чтобы:</p>
+          <ul className="mt-3 sm:mt-4 list-disc space-y-2 sm:space-y-3 pl-6 text-base sm:text-lg leading-[1.65] text-text-secondary md:text-xl md:leading-[1.7]">
             <li>определить тип кожи</li>
             <li>выявить особенности и проблемы</li>
             <li>получить индивидуальный план ухода</li>
@@ -138,13 +191,13 @@ export default function LoginPage() {
           <Button
             type="button"
             variant="primary"
-            className="mt-8 aspect-square h-[120px] w-[120px] shrink-0 rounded-full border border-primary p-0 shadow-none hover:bg-primary-hover md:h-[128px] md:w-[128px]"
+            className="mt-6 sm:mt-8 aspect-square h-[88px] w-[88px] shrink-0 rounded-full sm:h-[120px] sm:w-[120px] md:h-[128px] md:w-[128px] border border-primary p-0 shadow-none hover:bg-primary-hover"
             onClick={scrollToLogin}
             aria-label="Перейти к форме входа"
           >
-            <PaperclipIcon className="h-10 w-10 text-text-main md:h-11 md:w-11" />
+            <PaperclipIcon className="h-8 w-8 text-text-main sm:h-10 sm:w-10 md:h-11 md:w-11" />
           </Button>
-          <p className="mt-10 max-w-md text-center text-base leading-relaxed text-text-secondary md:text-lg">
+          <p className="mt-8 sm:mt-10 max-w-md text-center text-sm sm:text-base leading-relaxed text-text-secondary md:text-lg">
             Ваши данные защищены. Анализ занимает меньше минуты.
           </p>
         </PageSection>

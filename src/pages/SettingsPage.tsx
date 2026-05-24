@@ -1,10 +1,10 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { AppPageShell } from '@/shared/layout/AppPageShell'
 import Button from '@/shared/ui/Button'
 import Card from '@/shared/ui/Card'
 import Input from '@/shared/ui/Input'
 import Select from '@/shared/ui/Select'
-import { AppPageShell } from '@/shared/layout/AppPageShell'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const greenBtn =
   'rounded-xl !border-accent-green !bg-accent-green text-text-main shadow-none hover:!bg-accent-green hover:brightness-[0.96] focus-visible:ring-accent-green/70'
@@ -17,13 +17,179 @@ const genderOptions = [
 
 const fieldRounding = 'rounded-full py-3.5'
 
+type UserData = {
+  email: string
+  fullName: string
+  birthDate: string
+  gender: string
+}
+
+type FormErrors = {
+  email?: string
+  password?: string
+  passwordRepeat?: string
+  fullName?: string
+  server?: string
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate()
+  const [isLoading, setIsLoading] = useState(false)
+  const [isFetching, setIsFetching] = useState(true)
+  const [successMessage, setSuccessMessage] = useState('')
+
+  // Поля формы
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordRepeat, setPasswordRepeat] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [birthDate, setBirthDate] = useState('')
   const [gender, setGender] = useState('')
+  const [errors, setErrors] = useState<FormErrors>({})
+
+  // Загрузка текущих данных пользователя
+  useEffect(() => {
+    const loadUserData = async () => {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        navigate('/login')
+        return
+      }
+
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+        const response = await fetch(`${apiUrl}/api/user/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('token')
+            localStorage.removeItem('user')
+            navigate('/login')
+          }
+          throw new Error('Не удалось загрузить профиль')
+        }
+
+        const data = await response.json()
+        // Заполняем форму
+        setEmail(data.email || '')
+        setFullName(data.fullName || '')
+        setBirthDate(data.birthDate?.split('T')[0] || '')
+        setGender(data.gender || '')
+      } catch (err) {
+        console.error(err)
+        setErrors({ server: 'Ошибка загрузки профиля' })
+      } finally {
+        setIsFetching(false)
+      }
+    }
+
+    loadUserData()
+  }, [navigate])
+
+  const handleSave = async () => {
+    // Валидация
+    const newErrors: FormErrors = {}
+    if (!email.trim()) newErrors.email = 'Укажите почту'
+    else if (!email.includes('@')) newErrors.email = 'Введите корректную почту'
+    if (!fullName.trim()) newErrors.fullName = 'Укажите имя и фамилию'
+    if (password && password !== passwordRepeat) {
+      newErrors.passwordRepeat = 'Пароли не совпадают'
+    }
+    if (password && password.length < 6) {
+      newErrors.password = 'Пароль должен быть не менее 6 символов'
+    }
+
+    setErrors(newErrors)
+    if (Object.keys(newErrors).length > 0) return
+
+    setIsLoading(true)
+    setSuccessMessage('')
+    setErrors({})
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('Нет авторизации')
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+      const payload: any = {
+        email: email.trim(),
+        fullName: fullName.trim(),
+        birthDate: birthDate || null,
+        gender: gender || null,
+      }
+      if (password) {
+        payload.password = password
+      }
+
+      const response = await fetch(`${apiUrl}/api/user/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (data.errors) {
+          const fieldErrors: FormErrors = {}
+          if (data.errors.email) fieldErrors.email = data.errors.email
+          if (data.errors.fullName) fieldErrors.fullName = data.errors.fullName
+          if (data.errors.password) fieldErrors.password = data.errors.password
+          setErrors(fieldErrors)
+        } else {
+          setErrors({ server: data.message || 'Ошибка сохранения' })
+        }
+        return
+      }
+
+      // Обновляем сохранённого пользователя в localStorage
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user))
+      } else {
+        // Если бэкенд не вернул user, обновляем хотя бы email и имя
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+        const updatedUser = { ...currentUser, email: email.trim(), fullName: fullName.trim() }
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+      }
+
+      setSuccessMessage('Данные успешно обновлены')
+      setTimeout(() => setSuccessMessage(''), 3000)
+
+      // Очищаем поля пароля
+      setPassword('')
+      setPasswordRepeat('')
+    } catch (err) {
+      console.error(err)
+      setErrors({ server: 'Ошибка соединения с сервером' })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    navigate('/login')
+  }
+
+  if (isFetching) {
+    return (
+      <AppPageShell>
+        <div className="flex justify-center items-center h-screen">Загрузка профиля...</div>
+      </AppPageShell>
+    )
+  }
 
   return (
     <AppPageShell>
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-8 pb-20 pt-16 md:flex-row md:px-12 md:pt-20 lg:gap-14">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 pb-20 pt-16 md:flex-row md:px-12 md:pt-20 lg:gap-14">
         <aside className="flex w-full shrink-0 flex-col gap-4 md:w-56">
           <Button
             type="button"
@@ -37,7 +203,7 @@ export default function SettingsPage() {
             type="button"
             variant="danger"
             className="w-full justify-center rounded-xl py-4 shadow-none"
-            onClick={() => navigate('/login')}
+            onClick={handleLogout}
           >
             Выход
           </Button>
@@ -51,40 +217,77 @@ export default function SettingsPage() {
           </Button>
         </aside>
 
-        <Card variant="primary" className="min-w-0 flex-1 shadow-none">
+        <Card variant="primary" className="min-w-0 flex-1 shadow-none px-4 sm:px-6 md:px-8">
           <h1 className="text-center text-2xl font-bold text-text-main">Изменить</h1>
+
+          {successMessage && (
+            <div className="mt-4 p-2 text-center text-sm text-green-700 bg-green-100 rounded-full">
+              {successMessage}
+            </div>
+          )}
+
           <div className="mt-8 space-y-4">
             <Input
               type="email"
               name="email"
               placeholder="Почта"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setErrors((prev) => ({ ...prev, email: undefined, server: undefined }))
+              }}
+              error={Boolean(errors.email)}
+              errorMessage={errors.email}
               inputClassName="rounded-full py-3.5"
             />
             <Input
               type="password"
               name="password"
-              placeholder="Пароль"
+              placeholder="Новый пароль (оставьте пустым, чтобы не менять)"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                setErrors((prev) => ({ ...prev, password: undefined, passwordRepeat: undefined }))
+              }}
+              error={Boolean(errors.password)}
+              errorMessage={errors.password}
               inputClassName="rounded-full py-3.5"
             />
             <Input
               type="password"
               name="passwordRepeat"
-              placeholder="Повторить пароль"
+              placeholder="Повторить новый пароль"
+              value={passwordRepeat}
+              onChange={(e) => {
+                setPasswordRepeat(e.target.value)
+                setErrors((prev) => ({ ...prev, passwordRepeat: undefined }))
+              }}
+              error={Boolean(errors.passwordRepeat)}
+              errorMessage={errors.passwordRepeat}
               inputClassName="rounded-full py-3.5"
             />
             <Input
               type="text"
               name="name"
               placeholder="Имя и фамилия"
+              value={fullName}
+              onChange={(e) => {
+                setFullName(e.target.value)
+                setErrors((prev) => ({ ...prev, fullName: undefined }))
+              }}
+              error={Boolean(errors.fullName)}
+              errorMessage={errors.fullName}
               inputClassName="rounded-full py-3.5"
             />
             <Input
               type="date"
               name="birthDate"
               label="Дата рождения"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
               inputClassName={`${fieldRounding} min-h-[3.25rem] [color-scheme:light]`}
             />
-            <div className="max-w-[38%]">
+            <div className="w-full sm:max-w-[200px]">
               <Select
                 label="Пол"
                 name="gender"
@@ -95,10 +298,22 @@ export default function SettingsPage() {
                 fullWidth
               />
             </div>
+            {errors.server && (
+              <div className="text-center text-sm text-error bg-error/10 p-2 rounded-full">
+                {errors.server}
+              </div>
+            )}
           </div>
+
           <div className="mt-10 flex justify-end">
-            <Button type="button" variant="ghost" className={`rounded-xl px-10 py-3 ${greenBtn}`}>
-              Сохранить
+            <Button
+              type="button"
+              variant="ghost"
+              className={`rounded-xl px-10 py-3 ${greenBtn} disabled:opacity-70`}
+              onClick={handleSave}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Сохранение...' : 'Сохранить'}
             </Button>
           </div>
         </Card>
