@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom'
+import { mockCurrentResult } from '@/mocks/analyses'
 import { AppPageShell } from '@/shared/layout/AppPageShell'
 import { PageCenter, PageSection } from '@/shared/layout/PageContent'
 import {
