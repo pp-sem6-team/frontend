@@ -1,15 +1,7 @@
-export type AnalysisStatus = 'completed' | 'processing' | 'failed'
+import type { AnalysisView } from '@/shared/api/analysisView'
 
-export type Analysis = {
-  id: string
-  date: string
-  status: AnalysisStatus
-  skinType: string
-  description: string
-  shortDescription: string
-  recommendations: string[]
-  ingredients: string[]
-}
+export type AnalysisStatus = AnalysisView['status']
+export type Analysis = AnalysisView
 
 export const mockCurrentResult: Analysis = {
   id: 'analysis-1',
@@ -70,16 +62,4 @@ export const mockHistoryAnalyses: Analysis[] = [
   },
 ]
 
-export function statusToListItemStatus(
-  status: AnalysisStatus,
-): 'processing' | 'completed' | 'failed' {
-  if (status === 'completed') return 'completed'
-  if (status === 'processing') return 'processing'
-  return 'failed'
-}
-
-export function statusLabel(status: AnalysisStatus): string {
-  if (status === 'completed') return 'Готово'
-  if (status === 'processing') return 'В обработке'
-  return 'Ошибка'
-}
+export { statusLabel } from '@/shared/api/analysisView'

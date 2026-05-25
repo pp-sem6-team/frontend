@@ -1,11 +1,17 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { AppPageShell } from '@/shared/layout/AppPageShell'
+import { PageCenter } from '@/shared/layout/PageContent'
+import {
+  authApi,
+  birthDateToApi,
+  genderToApi,
+  getApiError,
+} from '@/shared/api'
 import Button from '@/shared/ui/Button'
 import Card from '@/shared/ui/Card'
 import Input from '@/shared/ui/Input'
 import Select from '@/shared/ui/Select'
-import { AppPageShell } from '@/shared/layout/AppPageShell'
-import { PageCenter } from '@/shared/layout/PageContent'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const genderOptions = [
   { value: '', label: '-' },
@@ -19,6 +25,7 @@ type RegisterErrors = {
   email?: string
   password?: string
   name?: string
+  server?: string
 }
 
 function validateRegister(email: string, password: string, name: string): RegisterErrors {
@@ -27,17 +34,9 @@ function validateRegister(email: string, password: string, name: string): Regist
   const p = password.trim()
   const n = name.trim()
 
-  if (!e) {
-    next.email = 'Укажите почту'
-  }
-
-  if (!p) {
-    next.password = 'Укажите пароль'
-  }
-
-  if (!n) {
-    next.name = 'Укажите имя и фамилию'
-  }
+  if (!e) next.email = 'Укажите почту'
+  if (!p) next.password = 'Укажите пароль'
+  if (!n) next.name = 'Укажите имя и фамилию'
 
   return next
 }
@@ -50,12 +49,36 @@ export default function RegisterPage() {
   const [birthDate, setBirthDate] = useState('')
   const [gender, setGender] = useState('')
   const [errors, setErrors] = useState<RegisterErrors>({})
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleRegister = () => {
-    const next = validateRegister(email, password, name)
-    setErrors(next)
-    if (Object.keys(next).length > 0) return
-    navigate('/upload')
+  const handleRegister = async () => {
+    // Клиентская валидация
+    const clientErrors = validateRegister(email, password, name)
+    setErrors(clientErrors)
+    if (Object.keys(clientErrors).length > 0) return
+
+    setIsLoading(true)
+    setErrors({}) // очищаем предыдущие ошибки
+
+    try {
+      await authApi.register({
+        email: email.trim(),
+        password,
+        name: name.trim(),
+        birth_date: birthDateToApi(birthDate),
+        gender: genderToApi(gender),
+      })
+      navigate('/upload')
+    } catch (err) {
+      const apiError = getApiError(err)
+      if (apiError.status === 409 || apiError.code === 'ALREADY_EXISTS') {
+        setErrors({ email: 'Пользователь с такой почтой уже существует' })
+      } else {
+        setErrors({ server: apiError.message || 'Не удалось зарегистрироваться' })
+      }
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -63,12 +86,13 @@ export default function RegisterPage() {
       <PageCenter className="min-h-[calc(100svh-2.25rem)] items-center justify-center pb-20 pt-6 md:pt-10">
         <Card
           variant="primary"
-          className="mx-auto w-full max-w-[480px] !rounded-[36px] !p-10 shadow-none md:!px-12 md:!py-12"
+          className="mx-auto w-full max-w-[480px] rounded-[28px] sm:!rounded-[36px] !p-6 sm:!p-10 md:!px-12 md:!py-12 shadow-none"
         >
-          <h1 className="text-center text-[2.625rem] font-black leading-tight text-text-main md:text-[3rem] md:leading-none">
+          <h1 className="text-center text-[2rem] sm:text-[2.625rem] md:text-[3rem] font-black leading-tight text-text-main md:leading-none">
             Регистрация
           </h1>
-          <div className="mt-10 space-y-5">
+
+          <div className="mt-6 sm:mt-10 space-y-4 sm:space-y-5">
             <Input
               type="email"
               name="email"
@@ -77,7 +101,7 @@ export default function RegisterPage() {
               value={email}
               onChange={(ev) => {
                 setEmail(ev.target.value)
-                setErrors((prev) => ({ ...prev, email: undefined }))
+                setErrors((prev) => ({ ...prev, email: undefined, server: undefined }))
               }}
               error={Boolean(errors.email)}
               errorMessage={errors.email}
@@ -91,7 +115,7 @@ export default function RegisterPage() {
               value={password}
               onChange={(ev) => {
                 setPassword(ev.target.value)
-                setErrors((prev) => ({ ...prev, password: undefined }))
+                setErrors((prev) => ({ ...prev, password: undefined, server: undefined }))
               }}
               error={Boolean(errors.password)}
               errorMessage={errors.password}
@@ -105,7 +129,7 @@ export default function RegisterPage() {
               value={name}
               onChange={(ev) => {
                 setName(ev.target.value)
-                setErrors((prev) => ({ ...prev, name: undefined }))
+                setErrors((prev) => ({ ...prev, name: undefined, server: undefined }))
               }}
               error={Boolean(errors.name)}
               errorMessage={errors.name}
@@ -119,7 +143,7 @@ export default function RegisterPage() {
               onChange={(ev) => setBirthDate(ev.target.value)}
               inputClassName={`${fieldRounding} min-h-[3.25rem] [color-scheme:light]`}
             />
-            <div className="max-w-[45%]">
+            <div className="w-full sm:max-w-[200px]">
               <Select
                 label="Пол"
                 name="gender"
@@ -130,16 +154,24 @@ export default function RegisterPage() {
                 fullWidth
               />
             </div>
+
+            {errors.server && (
+              <div className="text-center text-sm text-error bg-error/10 p-2 rounded-full">
+                {errors.server}
+              </div>
+            )}
           </div>
-          <div className="mt-10 flex flex-col items-center gap-5">
+
+          <div className="mt-8 sm:mt-10 flex flex-col items-center gap-5">
             <Button
               type="button"
               variant="primary"
               size="lg"
-              className="w-full justify-center rounded-full border-primary bg-primary px-8 py-[1.125rem] text-lg font-extrabold shadow-none hover:bg-primary-hover md:py-5 md:text-xl"
+              className="w-full justify-center rounded-full border-primary bg-primary px-4 sm:px-8 py-[1.125rem] text-lg font-extrabold shadow-none hover:bg-primary-hover md:py-5 md:text-xl disabled:opacity-70"
               onClick={handleRegister}
+              disabled={isLoading}
             >
-              Зарегистрироваться
+              {isLoading ? 'Регистрация...' : 'Зарегистрироваться'}
             </Button>
             <Button
               type="button"
